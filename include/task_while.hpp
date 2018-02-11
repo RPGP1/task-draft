@@ -31,6 +31,7 @@ namespace Expr
         While(While&&) noexcept(std::is_nothrow_move_constructible<TaskSet>::value);
         While& operator=(While&&) & noexcept(std::is_nothrow_move_assignable<TaskSet>::value);
 
+    protected:
         void init() override;
         bool eval() override;
 

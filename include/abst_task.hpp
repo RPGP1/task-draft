@@ -85,6 +85,7 @@ namespace Expr
         void force_quit() noexcept;
 
 
+    protected:
         // 以下、子クラスで(再)定義するメソッド
 
         /*!

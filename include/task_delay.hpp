@@ -21,6 +21,7 @@ public:
     Delay(Delay&&) noexcept;
     Delay& operator=(Delay&&) & noexcept;
 
+protected:
     void init() noexcept override;
     bool eval() noexcept override;
 };

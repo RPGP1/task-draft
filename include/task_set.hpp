@@ -166,6 +166,7 @@ public:
     TaskSet(TaskSet&&) noexcept;
     TaskSet& operator=(TaskSet&&) & noexcept;
 
+protected:
     void init() noexcept override;
     bool eval() override;
 

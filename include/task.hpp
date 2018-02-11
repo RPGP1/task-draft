@@ -40,6 +40,7 @@ public:
     Task(Task&&) noexcept;
     Task& operator=(Task&&) & noexcept;
 
+protected:
     bool eval() override;
 };
 

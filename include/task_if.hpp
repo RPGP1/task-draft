@@ -42,6 +42,7 @@ namespace Expr
         IfElse(IfElse&&) noexcept(std::is_nothrow_move_constructible<TaskSet>::value);
         IfElse& operator=(IfElse&&) & noexcept(std::is_nothrow_move_constructible<TaskSet>::value);
 
+    protected:
         /*!
          * @brief 条件分岐を行う
          * @detail 条件分岐の結果、実際に実行されることが決まったタスクはm_selected_taskに格納する

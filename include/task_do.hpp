@@ -23,6 +23,7 @@ namespace Expr
         DoWhile(DoWhile&&) noexcept(std::is_nothrow_move_constructible<While>::value);
         DoWhile& operator=(DoWhile&&) & noexcept(std::is_nothrow_move_assignable<While>::value);
 
+    protected:
         void init() noexcept override {}
         bool eval() override;
     };

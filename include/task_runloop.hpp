@@ -22,6 +22,7 @@ public:
     RunLoop(RunLoop&&) noexcept;
     RunLoop& operator=(RunLoop&&) & noexcept;
 
+protected:
     void init() override;
     bool eval() override;
 
