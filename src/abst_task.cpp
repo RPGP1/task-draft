@@ -47,6 +47,8 @@ namespace Expr
 
     bool AbstTask::evaluate()
     {
+        std::lock_guard<std::mutex> lock{m_eval_mutex};
+
         if (!m_on_eval) {
             init();
             m_on_eval = true;
@@ -65,6 +67,8 @@ namespace Expr
     // 全タスククラスに影響が有ると考えると例外を出させたくない
     void AbstTask::force_quit() noexcept
     {
+        std::lock_guard<std::mutex> lock{m_eval_mutex};
+
         if (m_on_eval) {
             m_on_eval = false;
 // try-catch only in Release build

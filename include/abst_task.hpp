@@ -3,8 +3,6 @@
  * @brief   タスクを扱う全クラスの親となる抽象クラスを定義する
  */
 
-// TODO: evaluateやforce_quitでmutex.lockが必要かもしれない
-
 // TODO: abst_task.cpp 参照
 
 // TODO: マネージャー機能を付ける
@@ -20,7 +18,7 @@
 #pragma once
 
 #include <functional>
-#include <type_traits>
+#include <mutex>
 
 namespace TaskManager
 {
@@ -49,6 +47,7 @@ namespace Expr
     {
     private:
         bool m_on_eval;  //!< 実行中かを示すフラグ
+        std::mutex m_eval_mutex;
 
     public:
         std::function<void()> interrupt_func;  //!< interruptの直後に呼ばれる
