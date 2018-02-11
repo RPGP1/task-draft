@@ -82,9 +82,10 @@ namespace Expr
 
 #ifdef NDEBUG
             } catch (const std::exception& e) {
-                std::cerr << e.what() << std::endl;
+                std::cerr << "error occurred during a task's force_quit...\n" << e.what() << std::endl;
 
             } catch (...) {
+                std::cerr << "error occurred during a task's force_quit()...\n(not an instance of std::exception 's derived class)" << std::endl;
             }
 #endif
         }
