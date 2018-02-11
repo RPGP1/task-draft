@@ -5,18 +5,9 @@
 
 // TODO: abst_task.cpp 参照
 
-// TODO: マネージャー機能を付ける
-// AbstTask#register(funclist, funclabel)
-// AbstTask#start
-// AbstTask#stop
-// AbstTask#reset
-// AbstTask#hard_reset
-
-// THINK: ManagerはAbstTaskと別に必要なのか
-// AbstTask#registerを呼ぶだけのお仕事？
-
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <mutex>
 
@@ -46,7 +37,9 @@ namespace Expr
     class AbstTask
     {
     private:
-        bool m_on_eval;  //!< 実行中かを示すフラグ
+        bool m_on_eval;                //!< タスクが実行中かを示すフラグ
+        std::atomic<bool> m_managing;  //!< タスク実行を管理中かを示すフラグ
+
         std::mutex m_eval_mutex;
 
     public:
@@ -83,6 +76,14 @@ namespace Expr
          * なお、実行中で無ければ何もしない。
          */
         void force_quit() noexcept;
+
+
+        void start() noexcept;
+        void resume();
+        void stop() noexcept;
+        void reset() noexcept;
+
+        bool running() noexcept;
 
 
     protected:

@@ -1,74 +1,65 @@
 #include <iostream>
+#include <random>
 
 #include "task_includes.hpp"
 
-struct Hyde {
-    // private:
-    void operator()() {}
+struct Human{
+    bool alive() const
+    {
+        char result;
+
+        std::cout << "Am I alive? [Y/n]";
+        std::cin >> result;
+
+        if (result == 'y' || result == 'Y') {
+            return true;
+        } else {
+            std::cout << "\nsucceeded to the next generation...\n";
+            return false;
+        }
+    }
 };
-struct HydeE {
-    // private:
-    void operator()() {throw(2);}
-};
+
+void TRY()
+{
+    std::cout << "Just do it!" << std::endl;
+}
+
+bool SUCCESS()
+{
+    std::random_device rnd_dev;
+    std::mt19937 mt(rnd_dev());
+    std::uniform_int_distribution<> rnd(0, 1);
+
+    return rnd(mt) == 0;
+}
+
+void REVIEW()
+{
+    std::cout << "What made difference?" << std::endl;
+}
+
 
 int main()
 {
     using namespace TaskManager;
 
-    Task func{[] { return false; }};
+    Human I{};
 
-    Task tmp{[] { std::cout << "lambda expression" << std::endl; }};
-
-    // clang-format off
-    auto&& tmp_if = If([] { return 2 > 3; })(
-                        [] { std::cout << "impossible" << std::endl; }
-                    )->ElseIf([] { return false; })(
-
-                    );
-    // clang-format on
-
-    auto count = 0;
-
-    // clang-format off
-    TaskSet set{
-        Hyde{},
-        Do(
-            [] { std::cout << "once called" << std::endl; }
-        )->Until([] { return true; }),
-        tmp_if->copy()->ElseIf([] { return 123 > 234; })(
-            [] { std::cout << 1 * 2 * 3 * 4 * 5 << std::endl; }
+    auto life = While([I] { return I.alive(); })(
+        [] { TRY(); },
+        If[ ([] { return SUCCESS(); }) ](
+            [] { std::cout << "Happy Party!" << std::endl; }
         )->Else(
-            Delay{1},
-            [] { std::cout << "else expression" << std::endl; }
-        ),
-        [] {},
-        tmp,
-        Wait([count]() mutable { std::cout << ++count << std::endl; return count > 3; }),
-        While([] { return true; })(
-            [count]() mutable { ++count; std::cout << "endless!" << count << std::endl; }
-        ),
-        tmp_if
-    };
-    // clang-format on
+            [] { REVIEW(); }
+        )
+    );
 
-    TaskSet set2 = set;
+    life.start();
+    while(life.running()){
+        life.resume();
+    }
 
-    set.evaluate();
-    set.evaluate();
-    set.evaluate();
-    set.evaluate();
-    set.evaluate();
-
-    set2.evaluate();
-    set2.evaluate();
-    set2.evaluate();
-    set2.evaluate();
-    set2.evaluate();
-
-    set2.interrupt_func = HydeE{};
-    set2.force_quit();
-
-    std::cout << 1 << std::endl;
 
     return 0;
 }
