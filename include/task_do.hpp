@@ -25,7 +25,7 @@ namespace Expr
 
     protected:
         void init() noexcept override {}
-        bool eval() override;
+        NextTask eval() override;
     };
 
 

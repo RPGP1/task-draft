@@ -168,7 +168,7 @@ public:
 
 protected:
     void init() noexcept override;
-    bool eval() override;
+    NextTask eval() override;
 
     void interrupt() override;
 };

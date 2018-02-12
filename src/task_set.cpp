@@ -54,7 +54,7 @@ void TaskSet::init() noexcept
 {
     m_index = 0;
 }
-bool TaskSet::eval()
+NextTask TaskSet::eval()
 {
     // 全タスクの終了
     if (m_index >= m_task_list.size()) {

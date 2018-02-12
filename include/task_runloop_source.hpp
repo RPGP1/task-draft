@@ -47,7 +47,7 @@ void RunLoop<LoopType>::init()
     m_loop->start();
 }
 template <typename LoopType>
-bool RunLoop<LoopType>::eval()
+NextTask RunLoop<LoopType>::eval()
 {
     return !m_loop->running();
 }

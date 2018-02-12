@@ -41,7 +41,7 @@ public:
     Task& operator=(Task&&) & noexcept;
 
 protected:
-    bool eval() override;
+    NextTask eval() override;
 };
 
 

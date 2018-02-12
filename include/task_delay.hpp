@@ -23,7 +23,7 @@ public:
 
 protected:
     void init() noexcept override;
-    bool eval() noexcept override;
+    NextTask eval() noexcept override;
 };
 
 }  // namespace TaskManager

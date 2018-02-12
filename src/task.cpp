@@ -28,7 +28,7 @@ Task& Task::operator=(Task&& _other) & noexcept
     return *this;
 }
 
-bool Task::eval()
+NextTask Task::eval()
 {
     // std::functionはnullptrも格納できるので、チェック
     return m_function && m_function();

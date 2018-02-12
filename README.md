@@ -153,6 +153,12 @@ TaskSet(
 
 主に、DSL全体を包んで1つの変数に入れるときなどに使う。
 
+#### TaskSetはコピーする
+
+DSLの都合や思わぬ副作用を防ぐために、関数オブジェクト・タスククラスの実体・タスククラスの(スマート)ポインタを受け取ったのち、**全て実体をコピーする**。繰り返すが、**ポインタを渡してもそれが指す実体をコピーする**。設定したタスクを外側から参照するのは不可能であることや、タスクのポインタは全て`AbstTask*`型に入るけれども、それを`TaskSet`には渡せないことに注意されたい。後者については`auto`を有効活用してほしい。
+
+DSLのみを使う場合には問題ない。
+
 ### 変数保存可能
 
 ```c++
@@ -241,6 +247,94 @@ auto&& tmp_if2 = tmp_if->Else(
 // tmp_if2->Else();
 ```
 
+### シーン制御
+
+後述の通り[拡張性が良い](#拡張を容易に)ので、クラスの継承さえ理解すれば多様な行動を組み上げられる。ここでは特に、シーン制御を挙げたい。
+
+ここまでに述べた機能は、設定したタスクが設定した順に呼び出される「シーケンス制御」である。単純なフローチャートに対応した流れのタスクを、単純かつ見やすく設定することに長けている。(他にも良い点はあるが、ここではそれを語らない。)
+
+しかし、分岐や繰り返しなどの条件を、個々のタスクの外側から設定しなければならない。[設定したタスクオブジェクトを外側から参照できない](#TaskSetはコピーする)ので、情報共有するにはグローバルなデータを経由したり、寿命に注意しながらローカルオブジェクトやポインタを扱ったりする必要が有る。これは手間とバグを生むことが有る。
+
+ならば、タスクが自分自身で状況を判断し、次に実行するタスクを教えてくれれば良いのではないか？この考えを形にしたのが**シーン制御**である。
+
+やり方としては、`AbstTask`を`public`継承したクラスで、[ここ](#拡張を容易に)の通りに幾つかのメソッドを定義すればいい。場合によっては`eval()`だけで十分である。そして、[`eval()`の返り値の指す意味](#`NextTask`クラス)を利用すれば、すぐに1つのシーンが出来上がる。
+
+#### シーンの例
+
+次のコードで定義するシーンは、
+
+1.  非常に重い処理をする関数オブジェクト`std::function<std::shared_ptr<AbstTask>()>`を受け取り、
+2.  別スレッドで実行する。
+3.  結果が出るまでは自タスクを呼び続けるようにし、
+4.  結果が出たらそれが指すタスクに移行する。
+
+簡単のため、受け取る関数オブジェクトのコピーと別スレッド実行については、安全性が担保されてるとする。また、コピー・ムーブ・デストラクタについては省略する。
+
+```c++
+#include <thread>
+#include <atomic>
+#include <functional>
+#include <memory>
+
+// このリポジトリのコードはincludeされてるとする。
+
+namespace TaskManager
+{
+
+class ThreadScene : public Expr::AbstTask {
+private:
+    std::function<std::shared_ptr<Expr::AbstTask>()> m_func;
+    std::shared_ptr<std::atomic<bool>> m_finish_flag;
+    std::shared_ptr<std::shared_ptr<AbstTask>> m_next_task;
+
+public:
+    ThreadScene(std::function<std::shared_ptr<AbstTask>()> _func)
+        : m_func{_func},
+          m_finish_flag{std::make_shared<std::atomic<bool>>(false)},
+          m_next_task{std::make_shared<std::shared_ptr<AbstTask>>(nullptr)}
+    {
+    }
+
+protected:
+    void init() override
+    {
+        std::thread tmp_thread{
+            [flag = std::weak_ptr<std::atomic<bool>>{m_finish_flag},
+             next = std::weak_ptr<std::shared_ptr<AbstTask>>{m_next_task},
+             func = m_func]() mutable {
+                auto result = func();
+
+                auto next_ptr = next.lock();
+                auto flag_ptr = flag.lock();
+                if (next_ptr && flag_ptr) {
+                    *next_ptr = result;
+                    *flag_ptr = true;
+                }
+            }
+        };
+        tmp_thread.detach();
+    }
+
+    NextTask eval() override
+    {
+        if (*m_finish_flag) {
+            return *m_next_task;
+        }
+
+        return false;
+    }
+};
+
+}  // namespace TaskManager
+```
+
+全く簡単じゃなかった…。しかし、スレッド処理の為にフラグと返り値の受け取りをわざわざ外部の変数を介す面倒を想像すると、シーン制御の強みは感じられるかと願う。
+
+ちなみにc++のスレッド処理は初めて書いたので、粗は見逃して欲しい。
+
+Q. てか何でこれを選んだ。
+A. Rubyのノリで選んだ。
+
 ## 何が強い？
 
 折角作ったので、全力で推す。
@@ -281,12 +375,31 @@ DSLとは「中でどうなっているか知らんけどきちんと動く」�
 
 `AbstTask`クラスの持つ仮想関数は次の通り
 
-*   `void init()`: タスクの遂行が始まる直前に呼ばれる
-*   `bool eval()`: タスクの遂行を行う部分。返り値は関数オブジェクトの項と同様
-*   `void quit()`: タスク終了直後に呼ばれる
+*   `void init()`: タスクの遂行が始まる直前に呼ばれる。デフォルトでは何もしない。
+*   `NextTask eval()`: タスクの遂行を行う部分。デフォルトでは未定義なので、**絶対に定義しなければならない**。返り値は概ね関数オブジェクトの項と同様だが、詳細は後述。
+*   `void quit()`: タスク終了直後に呼ばれる。デフォルトでは何もしない。
 *   `void interrupt()`: タスクの実行中に中断された時に呼ばれる。デフォルトでは`quit()`を呼び出す。
 
 これに加えて、`AbstTask`には`std::function<void()>`型の`public`メンバ変数`interrupt_func`があり、これを設定すると`interrupt()`の直後に呼び出されるようになる。
+
+クラス定義をして拡張を行う際、[いくつかの点を注意してほしい(リンク)](#拡張での注意)。
+
+#### `NextTask`クラス
+
+`AbstTask::eval()`の返り値として用いられているこのクラスは、`bool`型と`std::shared_ptr<AbstTask>`型からの暗黙の型変換が出来る。つまり`eval()`内の`return`文は`bool`型の他に`std::shared_ptr<AbstTask>`を返せる。
+
+`bool`の持つ意味は関数オブジェクトの項で述べたのと同じである。`true`なら「終了して次の処理へ移る」であり、`false`なら「終了せずもう一度実行する」である。ちなみに、`bool`型に暗黙的に変換できる型は渡せず、`bool`型のみ渡せるので安心してよい。
+
+`std::shared_ptr<AbstTask>`の持つ意味は「終了して、渡したタスクに移る」である。自分のタスク処理は終了し、`quit()`まで呼ばれる。そして`shared_ptr`の指すタスクへと移行する。イメージとしては「シーケンス制御の中で自分の直後にタスクを差し込む」に近い。或いは、自分を起点とした「[シーン制御](#シーン制御)」を開始するとも言える。
+
+#### 拡張での注意
+
+基本的に、タスククラス定義で色々と考える必要はないが、次の内容を守って欲しい。
+
+1.  タスククラスは少なくともコピーコンストラクタが必要である。
+    *   どうしても不可能な場合は、そのクラスから明示的に変換でき、かつコピーコンストラクタを持つクラスを定義する。そして、`template <class T> struct Expr::for_copy`をタスククラスについて特殊化し、メンバ型`type`として変換先のクラスを指定する。
+2.  タスク実行中に外部から中断される可能性が有るので、適切に`interrupt()`を定義する。
+3.  他のタスクの処理を呼び出すとき、`eval()`ではなく`evaluate()`を呼び出す。また、`interrupt()`ではそれらのタスクの`force_quit()`を呼び出す。
 
 ## 課題
 

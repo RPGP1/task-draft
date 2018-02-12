@@ -71,7 +71,7 @@ namespace Expr
         // なお、条件式が生きていれば一度は実行されることが保証される
     }
 
-    bool While::eval()
+    NextTask While::eval()
     {
         /*
         if (m_should_eval) {  // initで判定した、実行するかどうか

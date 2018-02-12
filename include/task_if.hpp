@@ -53,7 +53,7 @@ namespace Expr
          * @detail initの処理の結果に応じてm_selected_taskを実行する
          * @sa IfElse::init()
          */
-        bool eval() override;
+        NextTask eval() override;
 
         void interrupt() override;
     };

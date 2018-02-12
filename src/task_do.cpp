@@ -42,7 +42,7 @@ namespace Expr
         return *this;
     }
 
-    bool DoWhile::eval()
+    NextTask DoWhile::eval()
     {
         return m_taskset.evaluate() && !(m_condition && m_condition());
     }

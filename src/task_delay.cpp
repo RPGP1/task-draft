@@ -40,7 +40,7 @@ void Delay::init() noexcept
 {
     m_count = 0;
 }
-bool Delay::eval() noexcept
+NextTask Delay::eval() noexcept
 {
     return ++m_count > m_delay;
 }

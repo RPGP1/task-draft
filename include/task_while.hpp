@@ -33,7 +33,7 @@ namespace Expr
 
     protected:
         void init() override;
-        bool eval() override;
+        NextTask eval() override;
 
         void interrupt() override;
     };

@@ -57,7 +57,7 @@ namespace Expr
         }
     }
 
-    bool IfElse::eval()
+    NextTask IfElse::eval()
     {
         // 条件が真となったものが有ったら
         if (m_selected_task) {
