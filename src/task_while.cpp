@@ -86,12 +86,12 @@ namespace Expr
         */
 
         // 上と同値
-        return !m_should_eval || (m_taskset.evaluate() && !m_condition());
+        return !m_should_eval || (evaluate(m_taskset) && !m_condition());
     }
 
     void While::interrupt()
     {
-        m_taskset.force_quit();
+        force_quit(m_taskset);
         quit();
     }
 

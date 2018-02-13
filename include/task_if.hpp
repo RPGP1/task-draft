@@ -28,8 +28,8 @@ namespace Expr
                                     >;  //!< (条件とTaskSetのペアー)のコンテナ
         // clang-format on
     protected:
-        condition_list_type m_condition_list;  //!< 条件やタスクを格納する
-        TaskSet* m_selected_task;              //!< 条件分岐の結果、実際に実行されるタスクを格納する。delete不要
+        condition_list_type m_condition_list;      //!< 条件やタスクを格納する
+        std::shared_ptr<TaskSet> m_selected_task;  //!< 条件分岐の結果、実際に実行されるタスクを格納する。
 
     public:
         IfElse(const condition_list_type&);

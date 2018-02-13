@@ -298,7 +298,7 @@ public:
 protected:
     void init() override
     {
-        std::thread tmp_thread{
+        std::thread{
             [flag = std::weak_ptr<std::atomic<bool>>{m_finish_flag},
              next = std::weak_ptr<std::shared_ptr<AbstTask>>{m_next_task},
              func = m_func]() mutable {
@@ -311,8 +311,7 @@ protected:
                     *flag_ptr = true;
                 }
             }
-        };
-        tmp_thread.detach();
+        }.detach();
     }
 
     NextTask eval() override
@@ -399,7 +398,11 @@ DSLとは「中でどうなっているか知らんけどきちんと動く」�
 1.  タスククラスは少なくともコピーコンストラクタが必要である。
     *   どうしても不可能な場合は、そのクラスから明示的に変換でき、かつコピーコンストラクタを持つクラスを定義する。そして、`template <class T> struct Expr::for_copy`をタスククラスについて特殊化し、メンバ型`type`として変換先のクラスを指定する。
 2.  タスク実行中に外部から中断される可能性が有るので、適切に`interrupt()`を定義する。
-3.  他のタスクの処理を呼び出すとき、`eval()`ではなく`evaluate()`を呼び出す。また、`interrupt()`ではそれらのタスクの`force_quit()`を呼び出す。
+3.  他のタスクの処理を呼び出すとき、
+    1.  副作用を避けるため、タスクはコピーして保持する。
+        *   不安な場合は`TaskSet`に入れて保持する。その場合は、`TaskSet`がコピーについて`noexcept`ではないことに注意。
+    2.  そのタスクの`eval()`ではなく、関数`evaluate(AbstTask&)`の引数に渡して呼び出す。
+    3.  `interrupt()`では、同様にそれらのタスクへ`force_quit(AbstTask&)`を呼び出す。
 
 ## 課題
 

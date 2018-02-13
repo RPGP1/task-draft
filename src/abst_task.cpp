@@ -28,19 +28,21 @@ namespace Expr
 
     AbstTask::AbstTask() noexcept
         : m_me_on_eval{false},
-          m_task_on_eval{nullptr},
+          m_manager{nullptr},
+          m_task_on_eval{std::shared_ptr<AbstTask>{nullptr}, this},
           m_running{false},
           interrupt_func{nullptr}
     {
     }
     AbstTask::~AbstTask() noexcept
     {
-        force_quit();
+        force_quit(*this);
     }
 
     AbstTask::AbstTask(const AbstTask& _other) noexcept
         : m_me_on_eval{false},
-          m_task_on_eval{nullptr},
+          m_manager{nullptr},
+          m_task_on_eval{std::shared_ptr<AbstTask>{nullptr}, this},
           m_running{false},
           interrupt_func{_other.interrupt_func}
     {
@@ -48,16 +50,19 @@ namespace Expr
     AbstTask& AbstTask::operator=(const AbstTask& _other) & noexcept
     {
         force_quit_task();
+        m_manager = nullptr;
         interrupt_func = _other.interrupt_func;
         return *this;
     }
     AbstTask::AbstTask(AbstTask&& _other) noexcept
         : m_me_on_eval{false},
-          m_task_on_eval{nullptr},
+          m_manager{nullptr},
+          m_task_on_eval{std::shared_ptr<AbstTask>{nullptr}, this},
           m_running{false},
           interrupt_func{nullptr}
     {
         _other.force_quit_task();
+        _other.m_manager = nullptr;
         interrupt_func = std::move(_other.interrupt_func);
         _other.interrupt_func = nullptr;
     }
@@ -65,14 +70,29 @@ namespace Expr
     {
         force_quit_task();
         _other.force_quit_task();
+        m_manager = nullptr;
+        _other.m_manager = nullptr;
         interrupt_func = std::move(_other.interrupt_func);
         _other.interrupt_func = nullptr;
         return *this;
     }
 
-    bool AbstTask::evaluate()
+    bool AbstTask::evaluate(AbstTask& _task)
     {
-        auto result = (m_task_on_eval ? m_task_on_eval.get() : this)->evaluate_task();
+        if (!m_manager) {
+            m_manager = {std::shared_ptr<AbstTask>{nullptr}, this};
+        }
+        return _task.evaluate_machine(m_manager);
+    }
+
+    bool AbstTask::evaluate_machine(std::shared_ptr<AbstTask>& _ptr)
+    {
+        std::lock_guard<std::mutex> lock{m_eval_mutex};
+
+        // タスク評価前にマネージャー登録
+        m_manager = _ptr;
+
+        auto result = m_task_on_eval->evaluate_task();
 
         if (auto next = result.pointer()) {  // 次のタスクを指定
             m_task_on_eval = next;
@@ -82,15 +102,15 @@ namespace Expr
             return false;
 
         } else {  // 終了
-            m_task_on_eval = nullptr;
+            m_task_on_eval = {std::shared_ptr<AbstTask>{nullptr}, this};
             return true;
         }
+
+        m_manager = nullptr;
     }
 
     NextTask AbstTask::evaluate_task()
     {
-        std::lock_guard<std::mutex> lock{m_eval_mutex};
-
         if (!m_me_on_eval) {
             init();
             m_me_on_eval = true;
@@ -107,18 +127,23 @@ namespace Expr
         return false;
     }
 
-    void AbstTask::force_quit() noexcept
+    void AbstTask::force_quit(AbstTask& _task) noexcept
     {
-        (m_task_on_eval ? m_task_on_eval.get() : this)->force_quit_task();
-        m_task_on_eval = nullptr;
+        _task.force_quit_machine();
+    }
+
+    void AbstTask::force_quit_machine() noexcept
+    {
+        std::lock_guard<std::mutex> lock{m_eval_mutex};
+
+        m_task_on_eval->force_quit_task();
+        m_task_on_eval = {std::shared_ptr<AbstTask>{nullptr}, this};
     }
 
     // 各種コンストラクタで呼ばれる可能性が有るため、
     // 全タスククラスに影響が有ると考えると例外を出させたくない
     void AbstTask::force_quit_task() noexcept
     {
-        std::lock_guard<std::mutex> lock{m_eval_mutex};
-
         if (m_me_on_eval) {
             m_me_on_eval = false;
 // try-catch only in Release build
@@ -154,7 +179,7 @@ namespace Expr
     void AbstTask::resume()
     {
         if (m_running) {
-            auto result = evaluate();
+            auto result = evaluate(*this);
 
             if (result) {
                 m_running = false;
@@ -172,7 +197,7 @@ namespace Expr
     }
     void AbstTask::reset() noexcept
     {
-        force_quit();
+        force_quit(*this);
     }
 
     bool AbstTask::running() noexcept

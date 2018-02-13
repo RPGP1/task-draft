@@ -44,7 +44,7 @@ namespace Expr
 
     NextTask DoWhile::eval()
     {
-        return m_taskset.evaluate() && !(m_condition && m_condition());
+        return evaluate(m_taskset) && !(m_condition && m_condition());
     }
 
 

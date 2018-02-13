@@ -51,7 +51,8 @@ namespace Expr
         for (auto& cond_pair : m_condition_list) {
             // 条件が真を示したら
             if (cond_pair.first && cond_pair.first()) {
-                m_selected_task = &cond_pair.second;
+                // ポインタを持ちながらも所有権は無い
+                m_selected_task = std::shared_ptr<TaskSet>{std::shared_ptr<TaskSet>{nullptr}, &cond_pair.second};
                 break;
             }
         }
@@ -61,7 +62,7 @@ namespace Expr
     {
         // 条件が真となったものが有ったら
         if (m_selected_task) {
-            return m_selected_task->evaluate();
+            return evaluate(*m_selected_task);
         }
 
         return true;
@@ -70,7 +71,7 @@ namespace Expr
     void IfElse::interrupt()
     {
         if (m_selected_task) {
-            m_selected_task->force_quit();
+            force_quit(*m_selected_task);
         }
         quit();
     }

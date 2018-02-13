@@ -64,7 +64,7 @@ NextTask TaskSet::eval()
     // 管理しているタスクを実行
     //     コンストラクタを考えると、呼び出せないオブジェクトは存在しないはず
     // trueが返ってきたら次を実行
-    if (m_task_list.at(m_index)->evaluate()) {
+    if (evaluate(*m_task_list.at(m_index))) {
         ++m_index;
         return eval();
     }
@@ -76,7 +76,7 @@ NextTask TaskSet::eval()
 
 void TaskSet::interrupt()
 {
-    m_task_list.at(m_index)->force_quit();
+    force_quit(*m_task_list.at(m_index));
     quit();
 }
 

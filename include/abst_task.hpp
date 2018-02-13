@@ -85,6 +85,7 @@ namespace Expr
     {
     private:
         bool m_me_on_eval;                         //!< このタスクが実行中かを示すフラグ
+        std::shared_ptr<AbstTask> m_manager;       //!< このタスクを管理しているマネージャーのポインタ
         std::shared_ptr<AbstTask> m_task_on_eval;  //!< このマシンが実行しているタスクのポインタ
         std::atomic<bool> m_running;               //!< このマネージャーがタスク処理を呼び出す状態かを示すフラグ
 
@@ -106,21 +107,32 @@ namespace Expr
         AbstTask(AbstTask&&) noexcept;
         AbstTask& operator=(AbstTask&&) & noexcept;
 
+    protected:
+        std::shared_ptr<AbstTask> manager() noexcept { return m_manager; }
+
         /*!
          * @fn
          * @brief マネージャーやタスク管理側からこのマシン・タスクの内容として呼ばれる関数は、実際にはこのメンバ関数である。
-         * @detail マシンとしての処理を行い、タスクの処理を呼ぶなどしている。
+         * @detail マネージャー情報を伝達し、タスクの処理を呼ぶなどしている。
          * ユーザは気にしなくてよいし、virtualでないことから分かるように編集するべきものでもないが、
          * 他のタスクを実行する際にはこれを呼び出さなければならない。
          */
-        bool evaluate();
+        bool evaluate(AbstTask&);
 
     private:
         /*!
          * @fn
+         * @brief マシンに登録されたタスクへ評価のバトンを渡す関数。
+         * @detail マシンとしての処理を行い、タスクの処理を呼ぶなどしている。
+         * ユーザは気にしなくてよいし、virtualでないことから分かるように編集するべきものでもない。
+         * evaluate(AbstTask&)から呼び出される。
+         */
+        bool evaluate_machine(std::shared_ptr<AbstTask>&);
+        /*!
+         * @fn
          * @brief このタスクに定義されたeval()やinit()、quit()を状況に応じて呼び出す関数
          * @detail ユーザは気にしなくてよいし、virtualでないことから分かるように編集するべきものでもない。
-         * evaluate()から呼び出される。
+         * evaluate_machine(std::shared_ptr<AbstTask>&)から呼び出される。
          */
         NextTask evaluate_task();
 
@@ -128,19 +140,27 @@ namespace Expr
         /*!
          * @fn
          * @brief タスク管理側からこのマシン・タスクのinterrupt時に呼ばれる関数は、実際にはこのメンバ関数である。
-         * @detail マシンとしての処理を行い、タスクの中断処理を呼ぶ。
+         * @detail マシンの中断処理を呼ぶ。
          * ユーザは気にしなくてよいし、virtualでないことから分かるように編集するべきものでもないが、
          * 他のタスクを強制的に停止する際にはこれを呼び出さなければならない。
          * なお、実行中で無ければ何もしない。
          */
-        void force_quit() noexcept;
+        void force_quit(AbstTask&) noexcept;
 
     private:
         /*!
          * @fn
+         * @brief タスク管理側からこのマシン・タスクのinterrupt時に呼ばれる関数は、実際にはこのメンバ関数である。
+         * @detail マシンとしての処理を行い、タスクの中断処理を呼ぶ。
+         * @detail ユーザは気にしなくてよいし、virtualでないことから分かるように編集するべきものでもない。
+         * force_quit(AbstTask&)から呼び出される。
+         */
+        void force_quit_machine() noexcept;
+        /*!
+         * @fn
          * @brief このタスクに定義された中断処理を状況に応じて呼び出す関数
          * @detail ユーザは気にしなくてよいし、virtualでないことから分かるように編集するべきものでもない。
-         * force_quit()から呼び出される。
+         * force_quit_machine()から呼び出される。
          */
         void force_quit_task() noexcept;
 
