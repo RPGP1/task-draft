@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <type_traits>
 
 namespace TaskManager
@@ -25,12 +26,28 @@ namespace Expr
      * その場合には、コピー用のクラスを特殊化を用いて登録する
      */
     template <typename T>
-    struct for_copy {
+    struct set_for_copy {
         using type = T;
     };
 
+    namespace
+    {
+        template <typename T, bool = std::is_same<T, typename set_for_copy<T>::type>::value>
+        struct for_copy_recursive;
+
+        template <typename T>
+        struct for_copy_recursive<T, true> {
+            using type = T;
+        };
+
+        template <typename T>
+        struct for_copy_recursive<T, false> {
+            using type = typename for_copy_recursive<typename set_for_copy<T>::type>::type;
+        };
+    }
+
     template <typename T>
-    using for_copy_t = typename for_copy<T>::type;
+    using for_copy_t = typename for_copy_recursive<T>::type;
 
 
     class AbstTask;
@@ -84,31 +101,36 @@ namespace Expr
     class AbstTask
     {
     private:
-        bool m_me_on_eval;                         //!< このタスクが実行中かを示すフラグ
-        std::shared_ptr<AbstTask> m_manager;       //!< このタスクを管理しているマネージャーのポインタ
-        std::shared_ptr<AbstTask> m_task_on_eval;  //!< このマシンが実行しているタスクのポインタ
-        std::atomic<bool> m_running;               //!< このマネージャーがタスク処理を呼び出す状態かを示すフラグ
+        bool m_me_on_eval{false};                                                               //!< このタスクが実行中かを示すフラグ
+        std::shared_ptr<AbstTask> m_manager{nullptr};                                           //!< このタスクを管理しているマネージャーのポインタ
+        std::shared_ptr<AbstTask> m_task_on_eval{std::shared_ptr<AbstTask>{nullptr}, this};     //!< このマシンが実行しているタスクのポインタ
+        std::atomic<bool> m_running{false};                                                     //!< このマネージャーがタスク処理を呼び出す状態かを示すフラグ
+        std::shared_ptr<AbstTask> m_machine_on_eval{std::shared_ptr<AbstTask>{nullptr}, this};  //!< このマネージャーが処理を呼び出すマシンのポインタ
+        std::optional<int> m_priority{std::nullopt};                                            //!< ジャンプ判定で用いる優先度
+        std::shared_ptr<AbstTask> m_jump_task{nullptr};                                         //!< ジャンプ判定が真になったタスク
 
-        std::mutex m_eval_mutex;
+        std::mutex m_machine_mutex;  //!< タスクの実行と中断処理が同時に行われないようにするmutex
 
     public:
-        std::function<void()> interrupt_func;  //!< このタスクのinterruptの直後に呼ばれる
+        std::function<void()> interrupt_func{nullptr};  //!< このタスクのinterruptの直後に呼ばれる
 
     public:
-        AbstTask() noexcept;
+        AbstTask() noexcept {}
         virtual ~AbstTask() noexcept;
 
         // コピー・ムーブは可能だが、タスクの処理内容のコピー・ムーブであり、実行情報は移動しない
         //     具体的には、interrupt_funcしか移動しない
         // これは、子孫クラスでも同様にするべきである
-        // タスク実行中にコピーしたりムーブされたりするとinterruptとして扱われる
+        // 万が一、タスク実行中にコピーしたりムーブされたりするとinterruptとして扱われる
+        //     evaluateやforce_quitを実行中のスレッド内でinterruptになると身動きできず死ぬ！！！
+        //         「*this = ...」なんて実行する奴が悪い
         AbstTask(const AbstTask&) noexcept;
         AbstTask& operator=(const AbstTask&) & noexcept;
         AbstTask(AbstTask&&) noexcept;
         AbstTask& operator=(AbstTask&&) & noexcept;
 
     protected:
-        std::shared_ptr<AbstTask> manager() noexcept { return m_manager; }
+        bool set_jump(int _priority, const std::shared_ptr<AbstTask>&) noexcept;
 
         /*!
          * @fn
@@ -116,10 +138,19 @@ namespace Expr
          * @detail マネージャー情報を伝達し、タスクの処理を呼ぶなどしている。
          * ユーザは気にしなくてよいし、virtualでないことから分かるように編集するべきものでもないが、
          * 他のタスクを実行する際にはこれを呼び出さなければならない。
+         * @return 実行したタスクが終了したか。trueなら終了の意。
          */
         bool evaluate(AbstTask&);
 
     private:
+        /*!
+         * @fn
+         * @brief マネージャーとしてタスクを呼び出す
+         * @detail m_managerを設定してからevaluate(AbstTask&)を呼び出す。
+         * @return evaluate(AbstTask&)と同様。
+         * @sa evaluate(AbstTask&);
+         */
+        bool evaluate_as_manager(AbstTask&);
         /*!
          * @fn
          * @brief マシンに登録されたタスクへ評価のバトンを渡す関数。
@@ -136,7 +167,7 @@ namespace Expr
          */
         NextTask evaluate_task();
 
-    public:
+    protected:
         /*!
          * @fn
          * @brief タスク管理側からこのマシン・タスクのinterrupt時に呼ばれる関数は、実際にはこのメンバ関数である。
@@ -180,7 +211,6 @@ namespace Expr
         /*!
          * @fn
          * @brief 自分の担当するタスクを実行する
-         * @return 次の処理に移っていいか
          * @detail タスクを管理する側から呼ばれる主なメンバ関数。
          * @return 返り値の意味はNextTaskクラス参照
          * @sa NextTask

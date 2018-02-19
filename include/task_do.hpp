@@ -43,10 +43,10 @@ namespace Expr
 
             virtual ~WhileClass() noexcept {}
 
-            WhileClass(const WhileClass&) noexcept;
-            WhileClass& operator=(const WhileClass&) & noexcept;
-            WhileClass(WhileClass&&) noexcept;
-            WhileClass& operator=(WhileClass&&) & noexcept;
+            WhileClass(const WhileClass&) noexcept = default;
+            WhileClass& operator=(const WhileClass&) & noexcept = default;
+            WhileClass(WhileClass&&) noexcept = default;
+            WhileClass& operator=(WhileClass&&) & noexcept = default;
 
             DoWhile operator[](const std::function<bool()>&) const;
             DoWhile operator[](std::function<bool()>&&) const;
@@ -74,8 +74,8 @@ namespace Expr
         };
 
     public:
-        WhileClass While;
-        UntilClass Until;
+        const WhileClass While;
+        const UntilClass Until;
 
     public:
         DoTaskSet(const std::shared_ptr<TaskSet>&) noexcept;
@@ -83,10 +83,10 @@ namespace Expr
 
         virtual ~DoTaskSet() noexcept {}
 
-        DoTaskSet(const DoTaskSet&) noexcept;
-        DoTaskSet& operator=(const DoTaskSet&) & noexcept;
-        DoTaskSet(DoTaskSet&&) noexcept;
-        DoTaskSet& operator=(DoTaskSet&&) & noexcept;
+        DoTaskSet(const DoTaskSet&) noexcept = default;
+        DoTaskSet& operator=(const DoTaskSet&) & noexcept = default;
+        DoTaskSet(DoTaskSet&&) noexcept = default;
+        DoTaskSet& operator=(DoTaskSet&&) & noexcept = default;
     };
 
 

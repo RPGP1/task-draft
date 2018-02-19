@@ -59,29 +59,6 @@ namespace Expr
     {
     }
 
-    DoTaskSet::DoTaskSet(const DoTaskSet& _other) noexcept
-        : While{_other.While},
-          Until{_other.Until}
-    {
-    }
-    DoTaskSet& DoTaskSet::operator=(const DoTaskSet& _other) & noexcept
-    {
-        While = _other.While;
-        Until = _other.Until;
-        return *this;
-    }
-    DoTaskSet::DoTaskSet(DoTaskSet&& _other) noexcept
-        : While{std::move(_other.While)},
-          Until{std::move(_other.Until)}
-    {
-    }
-    DoTaskSet& DoTaskSet::operator=(DoTaskSet&& _other) & noexcept
-    {
-        While = std::move(_other.While);
-        Until = std::move(_other.Until);
-        return *this;
-    }
-
 
     DoTaskSet::WhileClass::WhileClass(const std::shared_ptr<TaskSet>& _task) noexcept
         : m_taskset{_task}
@@ -90,27 +67,6 @@ namespace Expr
     DoTaskSet::WhileClass::WhileClass(std::shared_ptr<TaskSet>&& _task) noexcept
         : m_taskset{std::move(_task)}
     {
-    }
-
-    DoTaskSet::WhileClass::WhileClass(const WhileClass& _other) noexcept
-        : m_taskset{_other.m_taskset}
-    {
-    }
-    DoTaskSet::WhileClass& DoTaskSet::WhileClass::operator=(const WhileClass& _other) & noexcept
-    {
-        m_taskset = _other.m_taskset;
-        return *this;
-    }
-    DoTaskSet::WhileClass::WhileClass(WhileClass&& _other) noexcept
-        : m_taskset{std::move(_other.m_taskset)}
-    {
-        _other.m_taskset = nullptr;
-    }
-    DoTaskSet::WhileClass& DoTaskSet::WhileClass::operator=(WhileClass&& _other) & noexcept
-    {
-        m_taskset = std::move(_other.m_taskset);
-        _other.m_taskset = nullptr;
-        return *this;
     }
 
     DoWhile DoTaskSet::WhileClass::operator[](const std::function<bool()>& _func) const

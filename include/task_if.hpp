@@ -28,19 +28,19 @@ namespace Expr
                                     >;  //!< (条件とTaskSetのペアー)のコンテナ
         // clang-format on
     protected:
-        condition_list_type m_condition_list;      //!< 条件やタスクを格納する
-        std::shared_ptr<TaskSet> m_selected_task;  //!< 条件分岐の結果、実際に実行されるタスクを格納する。
+        condition_list_type m_condition_list;               //!< 条件やタスクを格納する
+        std::shared_ptr<TaskSet> m_selected_task{nullptr};  //!< 条件分岐の結果、実際に実行されるタスクを格納する。
 
     public:
         IfElse(const condition_list_type&);
-        IfElse(condition_list_type&&) noexcept(std::is_nothrow_move_constructible<TaskSet>::value);
+        IfElse(condition_list_type&&) noexcept;
 
         virtual ~IfElse() noexcept {}
 
         IfElse(const IfElse&);
         IfElse& operator=(const IfElse&) &;
-        IfElse(IfElse&&) noexcept(std::is_nothrow_move_constructible<TaskSet>::value);
-        IfElse& operator=(IfElse&&) & noexcept(std::is_nothrow_move_constructible<TaskSet>::value);
+        IfElse(IfElse&&) noexcept;
+        IfElse& operator=(IfElse&&) & noexcept;
 
     protected:
         /*!
@@ -64,108 +64,86 @@ namespace Expr
      */
     class If : public IfElse
     {
-    private:
-        class ElseIfClass
+        class IfFunction
         {
-        private:
-            class ElseIfCondition
+            class ElseIfClass
             {
-            private:
-                std::shared_ptr<If> m_if_task;
-                std::function<bool()> m_condition;
+                class ElseIfCondition
+                {
+                private:
+                    condition_list_type m_condition_list;
+                    std::function<bool()> m_condition;
+
+                public:
+                    ElseIfCondition(const condition_list_type&, const std::function<bool()>&) noexcept;
+                    ElseIfCondition(const condition_list_type&, std::function<bool()>&&) noexcept;
+
+                    virtual ~ElseIfCondition() noexcept {}
+
+                    ElseIfCondition(const ElseIfCondition&) = default;
+                    ElseIfCondition& operator=(const ElseIfCondition&) & = default;
+                    ElseIfCondition(ElseIfCondition&&) noexcept = default;
+                    ElseIfCondition& operator=(ElseIfCondition&&) & noexcept = default;
+
+                    template <typename... TaskClasses>
+                    If operator()(TaskClasses&&... tasks) const&;
+                    template <typename... TaskClasses>
+                    If operator()(TaskClasses&&... tasks) &&;
+                };
+
+                std::shared_ptr<condition_list_type> m_cond_list_ptr;
 
             public:
-                ElseIfCondition(std::shared_ptr<If>&&, const std::function<bool()>&) noexcept;
-                ElseIfCondition(std::shared_ptr<If>&&, std::function<bool()>&&) noexcept;
+                ElseIfClass(const std::shared_ptr<condition_list_type>& _ptr) noexcept : m_cond_list_ptr{_ptr} {}
 
-                virtual ~ElseIfCondition() noexcept {}
+                virtual ~ElseIfClass() noexcept {}
 
-                ElseIfCondition(const ElseIfCondition&) noexcept;
-                ElseIfCondition& operator=(const ElseIfCondition&) & noexcept;
-                ElseIfCondition(ElseIfCondition&&) noexcept;
-                ElseIfCondition& operator=(ElseIfCondition&&) & noexcept;
+                ElseIfClass(const ElseIfClass&) noexcept = default;
+                ElseIfClass& operator=(const ElseIfClass&) & noexcept = default;
+                ElseIfClass(ElseIfClass&&) noexcept = default;
+                ElseIfClass& operator=(ElseIfClass&&) & noexcept = default;
 
-                template <typename... TaskClasses>
-                std::shared_ptr<If> operator()(TaskClasses&&... tasks) const&;
-                template <typename... TaskClasses>
-                std::shared_ptr<If> operator()(TaskClasses&&... tasks) &&;
+                ElseIfCondition operator[](const std::function<bool()>&) const noexcept;
+                ElseIfCondition operator[](std::function<bool()>&&) const noexcept;
+
+                ElseIfCondition operator()(const std::function<bool()>&) const noexcept;
+                ElseIfCondition operator()(std::function<bool()>&&) const noexcept;
             };
 
-            /*!
-             * 親のIfクラスオブジェクトへのポインタ。
-             * 循環参照を防ぐためweak_ptrを用いる。
-             * なお、自分というオブジェクトが生きている限り、
-             * コピー・ムーブが存在せず、コンストラクタが外部からはprivate contextなことから、
-             * 親を指すweak_ptrの参照は有効なので、
-             * 無効なweak_ptrを扱う危険性は考えなくてよい。
-             */
-            std::weak_ptr<If> m_parent_ptr;
+        private:
+            std::shared_ptr<condition_list_type> m_cond_list_ptr;
 
         public:
-            ElseIfClass() noexcept;
+            const ElseIfClass ElseIf;
 
-            void set_parent(const std::shared_ptr<If>&) noexcept;
+        public:
+            IfFunction(const condition_list_type&);
+            IfFunction(condition_list_type&&) noexcept;
 
-            virtual ~ElseIfClass() noexcept {}
+            virtual ~IfFunction() noexcept {}
 
-            ElseIfClass(const ElseIfClass&) = delete;
-            ElseIfClass& operator=(const ElseIfClass&) = delete;
-            ElseIfClass(ElseIfClass&&) = delete;
-            ElseIfClass& operator=(ElseIfClass&&) = delete;
+            IfFunction(const IfFunction&) noexcept = default;
+            IfFunction& operator=(const IfFunction&) & noexcept = default;
+            IfFunction(IfFunction&&) noexcept = default;
+            IfFunction& operator=(IfFunction&&) & noexcept = default;
 
-            ElseIfCondition operator[](const std::function<bool()>&) const noexcept;
-            ElseIfCondition operator[](std::function<bool()>&&) const noexcept;
-
-            ElseIfCondition operator()(const std::function<bool()>&) const noexcept;
-            ElseIfCondition operator()(std::function<bool()>&&) const noexcept;
+            template <typename... TaskClasses>
+            IfElse Else(TaskClasses&&...);
         };
 
     public:
-        ElseIfClass ElseIf;
+        If(const condition_list_type& _cond_list) : IfElse{_cond_list} {}
+        If(condition_list_type&& _cond_list) noexcept : IfElse{std::move(_cond_list)} {}
 
-    private:
-        /*!
-         * 自分自身へのポインタ。
-         * 循環参照を防ぐためweak_ptrを用いる。
-         * なお、自分というオブジェクトが生きている限りweak_ptrの参照は有効なので、
-         * 無効なweak_ptrを扱う危険性は考えなくてよい。
-         */
-        std::weak_ptr<If> m_this_ptr;
-
-    public:
-        static std::shared_ptr<If> create(const condition_list_type&);
-        static std::shared_ptr<If> create(condition_list_type&&) noexcept(std::is_nothrow_constructible<If, condition_list_type&&>::value);
-
-    private:
-        If(const condition_list_type&);
-        If(condition_list_type&&) noexcept(std::is_nothrow_constructible<IfElse, condition_list_type&&>::value);
-
-        void initialize_ptr(const std::shared_ptr<If>&) noexcept;
-
-    public:
         virtual ~If() noexcept {}
 
-        If(const If&) = delete;
+        If(const If& _other) : IfElse{_other} {}
         If& operator=(const If&) &;
-        If(If&&) = delete;
-        If& operator=(If&&) & noexcept(std::is_nothrow_move_assignable<TaskSet>::value);
+        If(If&& _other) noexcept : IfElse{std::move(_other)} {}
+        If& operator=(If&&) & noexcept;
 
-        std::shared_ptr<If> copy();
-
-        template <typename... TaskClasses>
-        std::shared_ptr<IfElse> Else(TaskClasses&&... tasks);
-
-    private:
-        void add_condition(const condition_list_type::value_type&);
-        void add_condition(condition_list_type::value_type&&) noexcept(std::is_nothrow_move_constructible<TaskSet>::value);
-    };
-
-
-    // Ifはコピーできないので、
-    // TaskSetに入れるなどのコピーする時にはIfElseにコピーする
-    template <>
-    struct for_copy<If> {
-        using type = IfElse;
+        std::shared_ptr<IfFunction> operator->() const&;
+        std::shared_ptr<IfFunction> operator->() && noexcept;
     };
 
 
@@ -179,15 +157,15 @@ namespace Expr
 
         virtual ~IfCondition() noexcept {}
 
-        IfCondition(const IfCondition&) noexcept;
-        IfCondition& operator=(const IfCondition&) & noexcept;
-        IfCondition(IfCondition&&) noexcept;
-        IfCondition& operator=(IfCondition&&) & noexcept;
+        IfCondition(const IfCondition&) noexcept = default;
+        IfCondition& operator=(const IfCondition&) & noexcept = default;
+        IfCondition(IfCondition&&) noexcept = default;
+        IfCondition& operator=(IfCondition&&) & noexcept = default;
 
         template <typename... TaskClasses>
-        std::shared_ptr<If> operator()(TaskClasses&&...) const&;
+        If operator()(TaskClasses&&...) const&;
         template <typename... TaskClasses>
-        std::shared_ptr<If> operator()(TaskClasses&&...) &&;
+        If operator()(TaskClasses&&...) &&;
     };
 
 
@@ -200,51 +178,50 @@ namespace Expr
 
 
     template <typename... TaskClasses>
-    std::shared_ptr<IfElse> If::Else(TaskClasses&&... tasks)
+    IfElse If::IfFunction::Else(TaskClasses&&... tasks)
     {
-        add_condition({[] { return true; }, TaskSet{std::forward<TaskClasses>(tasks)...}});
-        return m_this_ptr.lock();
+        condition_list_type tmp{*m_cond_list_ptr};
+        tmp.emplace_back([] { return true; }, TaskSet{std::forward<TaskClasses>(tasks)...});
+        return {tmp};
     }
 
     template <typename... TaskClasses>
-    std::shared_ptr<If> If::ElseIfClass::ElseIfCondition::operator()(TaskClasses&&... tasks) const&
+    If If::IfFunction::ElseIfClass::ElseIfCondition::operator()(TaskClasses&&... tasks) const&
     {
-        std::shared_ptr<If> tmp{m_if_task};
-        if (m_condition && sizeof...(TaskClasses) > 0) {
-            tmp->add_condition({m_condition, TaskSet{std::forward<TaskClasses>(tasks)...}});
+        condition_list_type tmp{m_condition_list};
+        if (m_condition) {
+            tmp.emplace_back(m_condition, TaskSet{std::forward<TaskClasses>(tasks)...});
         }
-        return tmp;
+        return {tmp};
     }
     template <typename... TaskClasses>
-    std::shared_ptr<If> If::ElseIfClass::ElseIfCondition::operator()(TaskClasses&&... tasks) &&
+    If If::IfFunction::ElseIfClass::ElseIfCondition::operator()(TaskClasses&&... tasks) &&
     {
-        std::shared_ptr<If> tmp{std::move(m_if_task)};
-        m_if_task = nullptr;
-        if (m_condition && sizeof...(TaskClasses) > 0) {
-            tmp->add_condition({std::move(m_condition), TaskSet{std::forward<TaskClasses>(tasks)...}});
-            m_condition = nullptr;
+        if (m_condition) {
+            m_condition_list.emplace_back(std::move(m_condition), TaskSet{std::forward<TaskClasses>(tasks)...});
         }
-        return tmp;
+        m_condition = nullptr;
+        return {std::move(m_condition_list)};
     }
 
 
     template <typename... TaskClasses>
-    std::shared_ptr<If> IfCondition::operator()(TaskClasses&&... tasks) const&
+    If IfCondition::operator()(TaskClasses&&... tasks) const&
     {
-        if (m_condition && sizeof...(TaskClasses) > 0) {
-            return If::create({{m_condition, TaskSet{std::forward<TaskClasses>(tasks)...}}});
+        if (m_condition) {
+            return {{{m_condition, TaskSet{std::forward<TaskClasses>(tasks)...}}}};
         }
-        return If::create({});
+        return {{}};
     }
     template <typename... TaskClasses>
-    std::shared_ptr<If> IfCondition::operator()(TaskClasses&&... tasks) &&
+    If IfCondition::operator()(TaskClasses&&... tasks) &&
     {
-        if (m_condition && sizeof...(TaskClasses) > 0) {
-            auto&& tmp = If::create({{std::move(m_condition), TaskSet{std::forward<TaskClasses>(tasks)...}}});
+        if (m_condition) {
+            If tmp{{{std::move(m_condition), TaskSet{std::forward<TaskClasses>(tasks)...}}}};
             m_condition = nullptr;
             return tmp;
         }
-        return If::create({});
+        return {{}};
     }
 
 }  // namespace Expr

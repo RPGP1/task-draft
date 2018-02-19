@@ -2,11 +2,9 @@
 
 #include "./abst_task.hpp"
 
-// TODO: 現状、nullptrを直接渡しても弾かれるが、受け入れるべきか
-
 // TODO: explicit Task::operator bool()を実装するべきか
 
-// TODO: 逆に、呼び出せない関数を渡されたら警告を発するべきか
+// TODO: 呼び出せない関数を渡されたら警告を発するべきか
 
 namespace TaskManager
 {
@@ -32,7 +30,6 @@ public:
     template <typename T, std::enable_if_t<std::is_same<bool, decltype(std::declval<T>()())>::value, bool> = false>
     Task(T&&);
 
-public:
     virtual ~Task() noexcept {}
 
     Task(const Task&) noexcept;

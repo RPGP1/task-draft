@@ -26,73 +26,80 @@ namespace Expr
     }
 
 
-    AbstTask::AbstTask() noexcept
-        : m_me_on_eval{false},
-          m_manager{nullptr},
-          m_task_on_eval{std::shared_ptr<AbstTask>{nullptr}, this},
-          m_running{false},
-          interrupt_func{nullptr}
-    {
-    }
     AbstTask::~AbstTask() noexcept
     {
         force_quit(*this);
     }
 
     AbstTask::AbstTask(const AbstTask& _other) noexcept
-        : m_me_on_eval{false},
-          m_manager{nullptr},
-          m_task_on_eval{std::shared_ptr<AbstTask>{nullptr}, this},
-          m_running{false},
-          interrupt_func{_other.interrupt_func}
+        : interrupt_func{_other.interrupt_func}
     {
     }
     AbstTask& AbstTask::operator=(const AbstTask& _other) & noexcept
     {
+        std::lock_guard<std::mutex> lock{m_machine_mutex};
+
         force_quit_task();
-        m_manager = nullptr;
         interrupt_func = _other.interrupt_func;
         return *this;
     }
     AbstTask::AbstTask(AbstTask&& _other) noexcept
-        : m_me_on_eval{false},
-          m_manager{nullptr},
-          m_task_on_eval{std::shared_ptr<AbstTask>{nullptr}, this},
-          m_running{false},
-          interrupt_func{nullptr}
     {
+        std::lock_guard<std::mutex> other_lock{_other.m_machine_mutex};
+
         _other.force_quit_task();
-        _other.m_manager = nullptr;
         interrupt_func = std::move(_other.interrupt_func);
         _other.interrupt_func = nullptr;
     }
     AbstTask& AbstTask::operator=(AbstTask&& _other) & noexcept
     {
+        std::lock_guard<std::mutex> lock{m_machine_mutex};
         force_quit_task();
+
+        std::lock_guard<std::mutex> other_lock{_other.m_machine_mutex};
         _other.force_quit_task();
-        m_manager = nullptr;
-        _other.m_manager = nullptr;
+
         interrupt_func = std::move(_other.interrupt_func);
         _other.interrupt_func = nullptr;
         return *this;
     }
 
+    bool AbstTask::set_jump(int _priority, const std::shared_ptr<AbstTask>& _jump) noexcept
+    {
+        if (m_manager) {
+            if (!m_manager->m_priority.has_value() || m_manager->m_priority.value() <= _priority) {
+                m_manager->m_jump_task = _jump;
+                m_manager->m_priority = _priority;
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     bool AbstTask::evaluate(AbstTask& _task)
     {
-        if (!m_manager) {
+        return _task.evaluate_machine(m_manager);
+    }
+
+    bool AbstTask::evaluate_as_manager(AbstTask& _task)
+    {
+        {
+            std::lock_guard<std::mutex> lock{m_machine_mutex};
             m_manager = {std::shared_ptr<AbstTask>{nullptr}, this};
         }
-        return _task.evaluate_machine(m_manager);
+        return evaluate(_task);
     }
 
     bool AbstTask::evaluate_machine(std::shared_ptr<AbstTask>& _ptr)
     {
-        std::lock_guard<std::mutex> lock{m_eval_mutex};
+        std::lock_guard<std::mutex> lock{m_machine_mutex};
 
         // タスク評価前にマネージャー登録
-        m_manager = _ptr;
-
+        m_task_on_eval->m_manager = _ptr;
         auto result = m_task_on_eval->evaluate_task();
+        m_task_on_eval->m_manager = nullptr;
 
         if (auto next = result.pointer()) {  // 次のタスクを指定
             m_task_on_eval = next;
@@ -105,8 +112,6 @@ namespace Expr
             m_task_on_eval = {std::shared_ptr<AbstTask>{nullptr}, this};
             return true;
         }
-
-        m_manager = nullptr;
     }
 
     NextTask AbstTask::evaluate_task()
@@ -116,9 +121,7 @@ namespace Expr
             m_me_on_eval = true;
         }
 
-        auto result = eval();
-
-        if (result) {
+        if (auto result = eval()) {
             m_me_on_eval = false;
             quit();
             return result;
@@ -134,7 +137,7 @@ namespace Expr
 
     void AbstTask::force_quit_machine() noexcept
     {
-        std::lock_guard<std::mutex> lock{m_eval_mutex};
+        std::lock_guard<std::mutex> lock{m_machine_mutex};
 
         m_task_on_eval->force_quit_task();
         m_task_on_eval = {std::shared_ptr<AbstTask>{nullptr}, this};
@@ -179,11 +182,19 @@ namespace Expr
     void AbstTask::resume()
     {
         if (m_running) {
-            auto result = evaluate(*this);
+            auto finish = evaluate_as_manager(*m_machine_on_eval);
 
-            if (result) {
+            if (m_jump_task) {
+                force_quit(*m_machine_on_eval);
+                m_machine_on_eval = std::move(m_jump_task);
+
+            } else if (finish) {
                 m_running = false;
+                m_machine_on_eval = {std::shared_ptr<AbstTask>{nullptr}, this};
             }
+
+            m_priority = std::nullopt;
+            m_jump_task = nullptr;
         }
     }
     void AbstTask::stop() noexcept
