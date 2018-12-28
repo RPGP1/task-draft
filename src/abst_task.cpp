@@ -11,20 +11,6 @@ namespace TaskManager
 namespace Expr
 {
 
-    NextTask::NextTask(NextTask&& _other) noexcept
-        : m_finish{_other.m_finish},
-          m_next{_other.m_next}
-    {
-        _other.m_next = nullptr;
-    }
-    NextTask& NextTask::operator=(NextTask&& _other) & noexcept
-    {
-        m_finish = _other.m_finish;
-        m_next = _other.m_next;
-        _other.m_next = nullptr;
-        return *this;
-    }
-
 
     AbstTask::~AbstTask() noexcept
     {

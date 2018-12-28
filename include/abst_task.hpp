@@ -59,8 +59,8 @@ namespace Expr
      */
     struct NextTask {
     private:
-        bool m_finish = true;
-        std::shared_ptr<AbstTask> m_next = nullptr;
+        bool m_finish{true};
+        std::shared_ptr<AbstTask> m_next{nullptr};
 
     public:
         template <typename T, std::enable_if_t<std::is_same<T, bool>::value, std::nullptr_t> = nullptr>
@@ -72,8 +72,8 @@ namespace Expr
 
         NextTask(const NextTask&) = delete;
         NextTask& operator=(const NextTask&) = delete;
-        NextTask(NextTask&&) noexcept;
-        NextTask& operator=(NextTask&&) & noexcept;
+        NextTask(NextTask&&) noexcept = default;
+        NextTask& operator=(NextTask&&) & noexcept = default;
 
         // 終了するか
         explicit operator bool() const noexcept { return m_next || m_finish; }
@@ -82,21 +82,21 @@ namespace Expr
 
 
     /*!
-     * @brief タスクの抽象クラス
-     * @detail 各タスクを定義する為のインターフェースを提供するとともに、
-     * 実行処理に関係するメソッドを定義する。
+     * @brief   タスクの抽象クラス
+     * @detail  各タスクを定義する為のインターフェースを提供するとともに、
+     *          実行処理に関係するメソッドを定義する。
      * 
-     * AbstTaskはシーケンス制御の中の1タスクであると同時に、
-     * そのシーケンス処理の命令塔にもなり、
-     * シーケンス制御中にステートマシン処理を組み込んだ際には、それの命令塔にもなる。
+     *          AbstTaskはシーケンス制御の中の1タスクであると同時に、
+     *          そのシーケンス処理の命令塔にもなり、
+     *          シーケンス制御中にステートマシン処理を組み込んだ際には、それの命令塔にもなる。
      * 
-     * 以下のドキュメントでは、
-     * 「シーケンス制御の中の1タスク」としての自身を「(この)タスク」と、
-     * 「シーケンス処理の命令塔」としての自身を「(この)マネージャー」と、
-     * 「ステートマシン処理の命令塔」としての自身を「(この)マシン」と表記する。
+     *          以下のドキュメントでは、
+     *          「シーケンス制御の中の1タスク」としての自身を「(この)タスク」と、
+     *          「シーケンス処理の命令塔」としての自身を「(この)マネージャー」と、
+     *          「ステートマシン処理の命令塔」としての自身を「(この)マシン」と表記する。
      * 
-     * タスクを定義する時にはマネージャーとマシンの違いを意識せずに済み、
-     * タスクを呼び出す時にはマシンとタスクの違いを意識せずに済むようにすることが目的。
+     *          タスクを定義する時にはマネージャーとマシンの違いを意識せずに済み、
+     *          タスクを呼び出す時にはマシンとタスクの違いを意識せずに済むようにすることが目的。
      */
     class AbstTask
     {
